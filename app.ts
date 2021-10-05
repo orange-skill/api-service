@@ -32,74 +32,109 @@ app.get("/", (req: Request, res: Response, next: NextFunction) => {
 });
 
 // ---- types ----
-interface Skill {
-  skillId: number,
-  track: string,
-  trackDetails: string,
-  profiency: number,
-  levelOne: string,
-  levelTwo: string,
-  levelThree: string,
-  levelFour: string,
-  levelOthers: string,
+interface ISkill extends Skill {}
+
+class Skill {
+  constructor(
+    public skillId: number,
+    public track: string,
+    public trackDetails: string,
+    public profiency: number,
+    public levelOne: string,
+    public levelTwo: string,
+    public levelThree: string,
+    public levelFour: string,
+    public levelOthers: string
+  ) {}
 }
 
+// source: https://stackoverflow.com/a/52490977/11199009
+type Tuple<T, N extends number> = N extends N
+  ? number extends N
+    ? T[]
+    : _TupleOf<T, N, []>
+  : never;
+type _TupleOf<T, N extends number, R extends unknown[]> = R["length"] extends N
+  ? R
+  : _TupleOf<T, N, [T, ...R]>;
+
 // ---- employee-skill endpoints -----
-app.post("/employee/skill/add", async (req: Request, res: Response, next: NextFunction) => {
-  const body = req.body;
-  const skill: Skill = body.skill;
-  const empId: number = body.empId;
+app.post(
+  "/employee/skill/add",
+  async (req: Request, res: Response, next: NextFunction) => {
+    const body = req.body;
+    const skill: ISkill = body.skill;
+    const empId: number = body.empId;
 
-  const tx = contract.methods.addSkill(
-    empId,
-    skill.skillId,
-    skill.track,
-    skill.trackDetails,
-    skill.profiency,
-    skill.levelOne,
-    skill.levelTwo,
-    skill.levelThree,
-    skill.levelFour,
-    skill.levelOthers,
-  );
+    const tx = contract.methods.addSkill(
+      empId,
+      skill.skillId,
+      skill.track,
+      skill.trackDetails,
+      skill.profiency,
+      skill.levelOne,
+      skill.levelTwo,
+      skill.levelThree,
+      skill.levelFour,
+      skill.levelOthers
+    );
 
-  const newTx = {
-    from: account.address,
-    to: contractAddress,
-    gas: "0x100000",
-    data: tx.encodeABI(),
-  };
-
-  // console.log("Transaction: ", newTx);
-  const signedTx = await account.signTransaction(newTx);
-  // console.log("signed transaction: ", signedTx.rawTransaction);
-  const result = web3.eth.sendSignedTransaction(signedTx.rawTransaction);
-  // result
-  //   .on("receipt", function (receipt) {
-  //     console.log("Receipt:", receipt);
-  //   })
-  //   .on("error", (err) => {
-  //     console.log("Error calling method", err);
-  //   });
-
-  let ret = {};
-  try {
-    const receipt = await result;
-    console.log("Receipt", receipt);
-    ret = {
-      msg: "Added to blockchain successfully",
-      receipt: receipt
+    const newTx = {
+      from: account.address,
+      to: contractAddress,
+      gas: "0x100000",
+      data: tx.encodeABI(),
     };
-  } catch (err) {
-    console.log("Error calling method", err);
-    ret = {
-      msg: "Error adding to blockchain",
-      error: err,
-    };
+
+    // console.log("Transaction: ", newTx);
+    const signedTx = await account.signTransaction(newTx);
+    // console.log("signed transaction: ", signedTx.rawTransaction);
+    const result = web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+    // result
+    //   .on("receipt", function (receipt) {
+    //     console.log("Receipt:", receipt);
+    //   })
+    //   .on("error", (err) => {
+    //     console.log("Error calling method", err);
+    //   });
+
+    let ret = {};
+    try {
+      const receipt = await result;
+      console.log("Receipt", receipt);
+      ret = {
+        msg: "Added to blockchain successfully",
+        receipt: receipt,
+      };
+    } catch (err) {
+      console.log("Error calling method", err);
+      ret = {
+        msg: "Error adding to blockchain",
+        error: err,
+      };
+    }
+
+    res.send(ret);
   }
+);
 
-  res.send(ret);
-});
+app.post(
+  "/employee/skills",
+  async (req: Request, res: Response, next: NextFunction) => {
+    const body = req.body;
+    const empId: number = body.empId;
+
+    // result is array of array here
+    const result: any[][] = await contract.methods.getSkills(empId).call();
+
+    const skills: Skill[] = [];
+    result.forEach((arr: Tuple<any, 9>) => {
+      skills.push(new Skill(...arr));
+    });
+
+    res.send({ skills });
+  }
+);
 
 // listen
 app.listen(port, () => {
