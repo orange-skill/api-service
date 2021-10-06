@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from "express";
+import { ObjectId, MongoClient } from "mongodb";
 import cors from "cors";
 import Web3 from "web3";
 import dotenv from "dotenv";
@@ -25,6 +26,17 @@ const contract = new web3.eth.Contract(jsonInterface, contractAddress, {
   gasPrice: "0",
   from: account.address,
 });
+
+// DB init {{{
+const client = new MongoClient(process.env.DB_CONN_STRING);
+client.connect().then(() => {
+  console.log("Mongo connected");
+}).catch(err => {
+  console.log("Mongo connection error:", err);
+});
+const db = client.db();
+const employeeCollection = db.collection("employee");
+// }}}
 
 // routes
 app.get("/", (req: Request, res: Response, next: NextFunction) => {
@@ -57,6 +69,38 @@ type Tuple<T, N extends number> = N extends N
 type _TupleOf<T, N extends number, R extends unknown[]> = R["length"] extends N
   ? R
   : _TupleOf<T, N, [T, ...R]>;
+
+// ---- employee endpoint        -----
+app.post(
+  "/employee/add",
+  async (req: Request, res: Response, next: NextFunction) => {
+    const body = req.body;
+    const empId: number = body.empId;
+    const newDoc = body;
+    newDoc._id = empId;
+
+    try {
+      const doc = await employeeCollection.insertOne(newDoc);
+      res.send({"msg": "success", data: doc});
+    } catch (err) {
+      res.status(400).send({"msg": "error", "error": err, "errString": "" + err});
+    }
+
+});
+app.post(
+  "/employee/get",
+  async (req: Request, res: Response, next: NextFunction) => {
+    const body = req.body;
+    const empId: number = body.empId;
+
+    try {
+      const doc = await employeeCollection.findOne({_id: empId});
+      res.send({"msg": "success", data: doc});
+    } catch (err) {
+      res.status(400).send({"msg": "error", "error": err, "errString": "" + err});
+    }
+
+});
 
 // ---- employee-skill endpoints -----
 app.post(
@@ -114,7 +158,10 @@ app.post(
       };
     }
 
-    res.send(ret);
+    const updateRes = await employeeCollection.updateOne({_id: empId}, {"$push": {"skills": skill}});
+    console.log(updateRes);
+
+    res.send({"blockchain": ret, "db": updateRes});
   }
 );
 
