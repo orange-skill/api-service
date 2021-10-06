@@ -1,5 +1,5 @@
 import express, { Request, Response, NextFunction } from "express";
-import { ObjectId, MongoClient } from "mongodb";
+import { MongoClient } from "mongodb";
 import cors from "cors";
 import Web3 from "web3";
 import dotenv from "dotenv";
@@ -29,11 +29,14 @@ const contract = new web3.eth.Contract(jsonInterface, contractAddress, {
 
 // DB init {{{
 const client = new MongoClient(process.env.DB_CONN_STRING);
-client.connect().then(() => {
-  console.log("Mongo connected");
-}).catch(err => {
-  console.log("Mongo connection error:", err);
-});
+client
+  .connect()
+  .then(() => {
+    console.log("Mongo connected");
+  })
+  .catch((err) => {
+    console.log("Mongo connection error:", err);
+  });
 const db = client.db();
 const employeeCollection = db.collection("employee");
 // }}}
@@ -81,12 +84,13 @@ app.post(
 
     try {
       const doc = await employeeCollection.insertOne(newDoc);
-      res.send({"msg": "success", data: doc});
+      res.send({ msg: "success", data: doc });
     } catch (err) {
-      res.status(400).send({"msg": "error", "error": err, "errString": "" + err});
+      res.status(400).send({ msg: "error", error: err, errString: "" + err });
     }
+  }
+);
 
-});
 app.post(
   "/employee/get",
   async (req: Request, res: Response, next: NextFunction) => {
@@ -94,13 +98,13 @@ app.post(
     const empId: number = body.empId;
 
     try {
-      const doc = await employeeCollection.findOne({_id: empId});
-      res.send({"msg": "success", data: doc});
+      const doc = await employeeCollection.findOne({ _id: empId });
+      res.send({ msg: "success", data: doc });
     } catch (err) {
-      res.status(400).send({"msg": "error", "error": err, "errString": "" + err});
+      res.status(400).send({ msg: "error", error: err, errString: "" + err });
     }
-
-});
+  }
+);
 
 // ---- employee-skill endpoints -----
 app.post(
@@ -158,12 +162,27 @@ app.post(
       };
     }
 
-    const updateRes = await employeeCollection.updateOne({_id: empId}, {"$push": {"skills": skill}});
+    const updateRes = await employeeCollection.updateOne(
+      { _id: empId },
+      { $push: { skills: skill } }
+    );
     console.log(updateRes);
 
-    res.send({"blockchain": ret, "db": updateRes});
+    res.send({ blockchain: ret, db: updateRes });
   }
 );
+
+async function getSkillsFromBlockchain(empId: number) {
+  // result is array of array here
+  const result: any[][] = await contract.methods.getSkills(empId).call();
+
+  const skills: Skill[] = [];
+  result.forEach((arr: Tuple<any, 9>) => {
+    skills.push(new Skill(...arr));
+  });
+
+  return skills;
+}
 
 app.post(
   "/employee/skills",
@@ -171,15 +190,67 @@ app.post(
     const body = req.body;
     const empId: number = body.empId;
 
-    // result is array of array here
-    const result: any[][] = await contract.methods.getSkills(empId).call();
-
-    const skills: Skill[] = [];
-    result.forEach((arr: Tuple<any, 9>) => {
-      skills.push(new Skill(...arr));
-    });
+    const skills: Skill[] = await getSkillsFromBlockchain(empId);
 
     res.send({ skills });
+  }
+);
+
+async function searchSkill(empId: number, skills: Skill[], rawQuery: string) {
+  const query = rawQuery.toLowerCase();
+
+  const foundSkills: Skill[] = [];
+
+  for (const skill of skills) {
+    if (
+      skill.levelOne.toLowerCase().includes(query) ||
+      skill.levelTwo.toLowerCase().includes(query) ||
+      skill.levelThree.toLowerCase().includes(query) ||
+      skill.levelFour.toLowerCase().includes(query) ||
+      skill.levelOthers.toLowerCase().includes(query)
+    ) {
+      foundSkills.push(skill);
+    }
+  }
+
+  if (foundSkills.length == 0) return null;
+  else {
+    return { empId, foundSkills };
+  }
+}
+
+app.post(
+  "/employee/searchSkill",
+  async (req: Request, res: Response, next: NextFunction) => {
+    const body = req.body;
+
+    const query: string = body.query;
+
+    const results = await employeeCollection
+      .find({})
+      .project({ _id: 1 })
+      .toArray();
+
+    const promises: Promise<any>[] = [];
+    results.forEach((result) => {
+      promises.push(
+        (async () => {
+          return await searchSkill(
+            result._id,
+            await getSkillsFromBlockchain(result._id),
+            query
+          );
+        })()
+      );
+    });
+
+    const empIds = await Promise.all(promises);
+    // empIds includes some null values, remove those
+    const newEmpIds = empIds.filter((e) => e);
+
+    console.log(newEmpIds);
+
+    res.send({ searchResult: newEmpIds });
   }
 );
 
