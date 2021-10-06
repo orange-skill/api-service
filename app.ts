@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from "express";
 import { MongoClient } from "mongodb";
+import cacheManager from 'cache-manager';
 import cors from "cors";
 import Web3 from "web3";
 import dotenv from "dotenv";
@@ -39,6 +40,10 @@ client
   });
 const db = client.db();
 const employeeCollection = db.collection("employee");
+// }}}
+
+// cache init {{{
+const cache = cacheManager.caching({store: 'memory', max: 100, ttl: 600/*seconds*/});
 // }}}
 
 // routes
@@ -168,6 +173,8 @@ app.post(
     );
     console.log(updateRes);
 
+    cache.del(empId.toString());
+
     res.send({ blockchain: ret, db: updateRes });
   }
 );
@@ -219,9 +226,17 @@ async function searchSkill(empId: number, skills: Skill[], rawQuery: string) {
   }
 }
 
+async function searchSkillCached(empId: number, skills: Skill[], rawQuery: string) {
+  console.log("trying cache");
+  return await cache.wrap(empId.toString(), () => {
+    console.log("cache miss");
+    return searchSkill(empId, skills, rawQuery);
+  });
+}
+
 app.post(
   "/employee/searchSkill",
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const body = req.body;
 
     const query: string = body.query;
@@ -235,7 +250,7 @@ app.post(
     results.forEach((result) => {
       promises.push(
         (async () => {
-          return await searchSkill(
+          return await searchSkillCached(
             result._id,
             await getSkillsFromBlockchain(result._id),
             query
