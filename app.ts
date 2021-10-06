@@ -47,7 +47,7 @@ const cache = cacheManager.caching({store: 'memory', max: 100, ttl: 600/*seconds
 // }}}
 
 // routes
-app.get("/", (req: Request, res: Response, next: NextFunction) => {
+app.get("/", (_: Request, res: Response) => {
   res.send("Welcome to Orange Skill API");
 });
 
@@ -81,7 +81,7 @@ type _TupleOf<T, N extends number, R extends unknown[]> = R["length"] extends N
 // ---- employee endpoint        -----
 app.post(
   "/employee/add",
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const body = req.body;
     const empId: number = body.empId;
     const newDoc = body;
@@ -98,7 +98,7 @@ app.post(
 
 app.post(
   "/employee/get",
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const body = req.body;
     const empId: number = body.empId;
 
@@ -114,7 +114,7 @@ app.post(
 // ---- employee-skill endpoints -----
 app.post(
   "/employee/skill/add",
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const body = req.body;
     const skill: ISkill = body.skill;
     const empId: number = body.empId;
@@ -193,7 +193,7 @@ async function getSkillsFromBlockchain(empId: number) {
 
 app.post(
   "/employee/skills",
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     const body = req.body;
     const empId: number = body.empId;
 
