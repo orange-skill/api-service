@@ -294,6 +294,8 @@ app.post("/employee/skill/confirm", async (req: Request, res: Response) => {
 
   const ret = await addEmployeeSkillBlockchain(empId, skill as Skill);
 
+  cache.del(empId.toString());
+
   res.send({ msg: "success", updateRes, blockchain: ret });
 });
 
