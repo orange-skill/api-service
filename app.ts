@@ -68,7 +68,11 @@ class Skill {
     public levelThree: string,
     public levelFour: string,
     public levelOthers: string
-  ) {}
+  ) {
+    this.skillId = Number(skillId);
+    this.managerId = Number(managerId);
+    this.profiency = Number(profiency);
+  }
 }
 
 interface ISkill extends Skill {}
@@ -159,6 +163,7 @@ async function addEmployeeSkillBlockchain(empId: number, skill: Skill) {
   const tx = contract.methods.addSkill(
     empId,
     skill.skillId,
+    skill.managerId,
     skill.track,
     skill.trackDetails,
     skill.profiency,
@@ -297,8 +302,11 @@ async function getSkillsFromBlockchain(empId: number) {
   const result: any[][] = await contract.methods.getSkills(empId).call();
 
   const skills: Skill[] = [];
-  result.forEach((arr: Tuple<any, 10>) => {
-    skills.push(new Skill(...arr));
+  result.forEach((arr: Tuple<any, 11>) => {
+    console.log(arr);
+    ((_: any, ...arr: Tuple<any, 10>) => {
+      skills.push(new Skill(...arr));
+    })(...arr);
   });
 
   return skills;
