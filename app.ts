@@ -1,5 +1,5 @@
 import express, { Request, Response, NextFunction } from "express";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import cacheManager from "cache-manager";
 import cors from "cors";
 import Web3 from "web3";
@@ -40,6 +40,7 @@ client
   });
 const db = client.db();
 const employeeCollection = db.collection("employee");
+const skillsCollection = db.collection("skillsList");
 // }}}
 
 // cache init {{{
@@ -159,6 +160,11 @@ app.post("/employee/get", async (req: Request, res: Response) => {
 });
 
 // ---- employee-skill endpoints -----
+app.post("/employee/skill/meta", async (_: Request, res: Response) => {
+  const doc = await skillsCollection.findOne({_id: new ObjectId("000000000000000000000001")});
+  res.send(doc.data);
+});
+
 async function addEmployeeSkillBlockchain(empId: number, skill: Skill) {
   const tx = contract.methods.addSkill(
     empId,
