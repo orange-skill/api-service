@@ -56,8 +56,6 @@ app.get("/", (_: Request, res: Response) => {
 });
 
 // ---- types ----
-interface ISkill extends Skill {}
-
 class Skill {
   constructor(
     public skillId: number,
@@ -71,6 +69,39 @@ class Skill {
     public levelOthers: string
   ) {}
 }
+
+interface ISkill extends Skill {}
+
+class SkillDb extends Skill {
+  constructor(
+    public skillId: number,
+    public track: string,
+    public trackDetails: string,
+    public profiency: number,
+    public levelOne: string,
+    public levelTwo: string,
+    public levelThree: string,
+    public levelFour: string,
+    public levelOthers: string,
+    public confirmed: boolean,
+    public public_: boolean,
+    public comments: IComment[]
+  ) {
+    super(
+      skillId,
+      track,
+      trackDetails,
+      profiency,
+      levelOne,
+      levelTwo,
+      levelThree,
+      levelFour,
+      levelOthers
+    );
+  }
+}
+
+interface ISkillDb extends SkillDb {}
 
 class Comment {
   constructor(
@@ -176,16 +207,15 @@ async function addEmployeeSkillBlockchain(empId: number, skill: Skill) {
 // adds to DB only
 app.post("/employee/skill/add", async (req: Request, res: Response) => {
   const body = req.body;
-  const skill: ISkill = body.skill;
+  const skill: ISkillDb = body.skill;
   const empId: number = body.empId;
 
-  const newSkill: any = skill;
-  newSkill.confirmed = false;
-  newSkill.comments = [];
+  skill.confirmed = false;
+  skill.comments = [];
 
   const updateRes = await employeeCollection.updateOne(
     { _id: empId },
-    { $push: { skills: newSkill } }
+    { $push: { skills: skill } }
   );
   console.log(updateRes);
 
