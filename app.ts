@@ -59,6 +59,7 @@ app.get("/", (_: Request, res: Response) => {
 class Skill {
   constructor(
     public skillId: number,
+    public managerId: number,
     public track: string,
     public trackDetails: string,
     public profiency: number,
@@ -75,6 +76,7 @@ interface ISkill extends Skill {}
 class SkillDb extends Skill {
   constructor(
     public skillId: number,
+    public managerId: number,
     public track: string,
     public trackDetails: string,
     public profiency: number,
@@ -89,6 +91,7 @@ class SkillDb extends Skill {
   ) {
     super(
       skillId,
+      managerId,
       track,
       trackDetails,
       profiency,
@@ -204,14 +207,25 @@ async function addEmployeeSkillBlockchain(empId: number, skill: Skill) {
   return ret;
 }
 
+async function findManagerIdFromEmail(email: string): Promise<number> {
+  const doc = await employeeCollection.findOne({ email: email });
+  return doc.empId;
+}
+
 // adds to DB only
 app.post("/employee/skill/add", async (req: Request, res: Response) => {
   const body = req.body;
-  const skill: ISkillDb = body.skill;
+  const rawSkill: any = body.skill;
   const empId: number = body.empId;
 
-  skill.confirmed = false;
-  skill.comments = [];
+  rawSkill.confirmed = false;
+  rawSkill.comments = [];
+
+  const managerId = await findManagerIdFromEmail(rawSkill.managerEmail);
+  rawSkill.managerId = managerId;
+  delete rawSkill.managerEmail;
+
+  const skill: ISkillDb = rawSkill;
 
   const updateRes = await employeeCollection.updateOne(
     { _id: empId },
@@ -283,7 +297,7 @@ async function getSkillsFromBlockchain(empId: number) {
   const result: any[][] = await contract.methods.getSkills(empId).call();
 
   const skills: Skill[] = [];
-  result.forEach((arr: Tuple<any, 9>) => {
+  result.forEach((arr: Tuple<any, 10>) => {
     skills.push(new Skill(...arr));
   });
 
