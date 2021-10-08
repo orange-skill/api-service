@@ -303,13 +303,21 @@ async function getSkillsFromBlockchain(empId: number) {
 
   const skills: Skill[] = [];
   result.forEach((arr: Tuple<any, 11>) => {
-    console.log(arr);
+    // console.log(arr);
     ((_: any, ...arr: Tuple<any, 10>) => {
       skills.push(new Skill(...arr));
     })(...arr);
   });
 
   return skills;
+}
+
+async function getSkillsFromBlockchainCached(empId: number): Promise<Skill[]> {
+  console.log("trying cache (for blockchain)");
+  return await cache.wrap(empId.toString(), () => {
+    console.log("cache miss (for blockchain)");
+    return getSkillsFromBlockchain(empId);
+  });
 }
 
 app.post("/employee/skills", async (req: Request, res: Response) => {
@@ -349,9 +357,9 @@ async function searchSkillCached(
   skills: Skill[],
   rawQuery: string
 ) {
-  console.log("trying cache");
-  return await cache.wrap(empId.toString(), () => {
-    console.log("cache miss");
+  console.log("trying cache (for computation)");
+  return await cache.wrap(rawQuery + ";-;-;" + empId.toString(), () => {
+    console.log("cache miss (for blockchain)");
     return searchSkill(empId, skills, rawQuery);
   });
 }
@@ -372,7 +380,7 @@ app.post("/employee/searchSkill", async (req: Request, res: Response) => {
       (async () => {
         return await searchSkillCached(
           result._id,
-          await getSkillsFromBlockchain(result._id),
+          await getSkillsFromBlockchainCached(result._id),
           query
         );
       })()
