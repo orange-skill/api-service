@@ -450,9 +450,10 @@ app.post(
             date: "$date",
             query: "$query",
           },
-          count: { $sum: 1 },
+          count: { $sum: "$count" },
         },
       },
+      { $sort: { count: -1 } },
       {
         $group: {
           _id: "$_id.query",
