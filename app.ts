@@ -41,6 +41,7 @@ client
 const db = client.db();
 const employeeCollection = db.collection("employee");
 const skillsCollection = db.collection("skillsList");
+const searchCollection = db.collection("searches");
 // }}}
 
 // cache init {{{
@@ -161,7 +162,9 @@ app.post("/employee/get", async (req: Request, res: Response) => {
 
 // ---- employee-skill endpoints -----
 app.post("/employee/skill/meta", async (_: Request, res: Response) => {
-  const doc = await skillsCollection.findOne({_id: new ObjectId("000000000000000000000001")});
+  const doc = await skillsCollection.findOne({
+    _id: new ObjectId("000000000000000000000001"),
+  });
   res.send(doc.data);
 });
 
@@ -372,10 +375,39 @@ async function searchSkillCached(
   });
 }
 
+async function logSearch(query: string, loc: string, givenDate: string = null) {
+  query = query.toLowerCase();
+
+  let date: Date;
+  if (givenDate === null || givenDate === undefined) {
+    date = new Date(Date.now());
+  } else {
+    date = new Date(givenDate);
+  }
+
+  const dateStr = `${date.getUTCDate() + 1}-${
+    date.getUTCMonth() + 1
+  }-${date.getUTCFullYear()}`;
+
+  console.log(
+    `Storing search query "${query} at date ${dateStr} in location ${loc}"`
+  );
+
+  const res = await searchCollection.updateOne(
+    { date: dateStr, loc: loc, query: query },
+    { $inc: { count: 1 } },
+    { upsert: true }
+  );
+
+  return res;
+}
+
 app.post("/employee/searchSkill", async (req: Request, res: Response) => {
   const body = req.body;
 
   const query: string = body.query;
+  const loc: string = body.loc;
+  const givenDate = body.date;
 
   const results = await employeeCollection
     .find({})
@@ -401,8 +433,51 @@ app.post("/employee/searchSkill", async (req: Request, res: Response) => {
 
   console.log(newEmpIds);
 
+  await logSearch(query, loc, givenDate);
+
   res.send({ searchResult: newEmpIds });
 });
+
+app.post(
+  "/employee/search/analytics/date",
+  async (req: Request, res: Response) => {
+    const result = searchCollection.aggregate([
+      // { $group: { _id: "$query", date: { $first: "$date" } } },
+      // { $group: { _id: "$date", count: { $sum: 1 } } },
+      {
+        $group: {
+          _id: {
+            date: "$date",
+            query: "$query",
+          },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $group: {
+          _id: "$_id.query",
+          dates: {
+            $push: {
+              date: "$_id.date",
+              count: "$count",
+            },
+          },
+          count: { $sum: "$count" },
+        },
+      },
+      { $sort: { count: -1 } },
+      {
+        $project: {
+          dates: { $slice: ["$dates", 2] },
+          count: 1,
+        },
+      },
+    ]);
+    const counts = await result.toArray();
+
+    res.send({ counts });
+  }
+);
 
 // listen
 app.listen(port, () => {
