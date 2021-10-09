@@ -452,6 +452,7 @@ app.post(
     const result = searchCollection.aggregate([
       // { $group: { _id: "$query", date: { $first: "$date" } } },
       // { $group: { _id: "$date", count: { $sum: 1 } } },
+      // ref: https://stackoverflow.com/a/22935461/11199009
       {
         $group: {
           _id: {
@@ -504,10 +505,10 @@ app.post(
       { $sort: { count: -1 } },
       {
         $group: {
-          _id: "$_id.loc",
-          queries: {
+          _id: "$_id.query",
+          locs: {
             $push: {
-              query: "$_id.query",
+              loc: "$_id.loc",
               count: "$count",
             },
           },
@@ -517,7 +518,7 @@ app.post(
       { $sort: { count: -1 } },
       // {
       //   $project: {
-      //     locs: { $slice: ["$queries", 2] },
+      //     locs: { $slice: ["$locs", 2] },
       //     count: 1,
       //   },
       // },
