@@ -488,6 +488,46 @@ app.post(
   }
 );
 
+app.post(
+  "/employee/search/analytics/loc",
+  async (req: Request, res: Response) => {
+    const result = searchCollection.aggregate([
+      {
+        $group: {
+          _id: {
+            loc: "$loc",
+            query: "$query",
+          },
+          count: { $sum: "$count" },
+        },
+      },
+      { $sort: { count: -1 } },
+      {
+        $group: {
+          _id: "$_id.loc",
+          queries: {
+            $push: {
+              query: "$_id.query",
+              count: "$count",
+            },
+          },
+          count: { $sum: "$count" },
+        },
+      },
+      { $sort: { count: -1 } },
+      // {
+      //   $project: {
+      //     locs: { $slice: ["$queries", 2] },
+      //     count: 1,
+      //   },
+      // },
+    ]);
+    const counts = await result.toArray();
+
+    res.send({ counts });
+  }
+);
+
 // listen
 app.listen(port, () => {
   console.log(`Orange Identity API is running on port ${port}.`);
