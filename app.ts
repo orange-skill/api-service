@@ -375,6 +375,16 @@ async function searchSkillCached(
   });
 }
 
+function formatDate(date: Date) {
+  // return ('0' + date.getUTCDate()).slice(-2) + "-" + ('0' + (date.getUTCMonth()+1)).slice(-2) + date.getUTCFullYear();
+  return date.toLocaleDateString("en-GB", {
+    // you can use undefined as first argument
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
 async function logSearch(query: string, loc: string, givenDate: string = null) {
   query = query.toLowerCase();
 
@@ -385,9 +395,7 @@ async function logSearch(query: string, loc: string, givenDate: string = null) {
     date = new Date(givenDate);
   }
 
-  const dateStr = `${date.getUTCDate() + 1}-${
-    date.getUTCMonth() + 1
-  }-${date.getUTCFullYear()}`;
+  const dateStr = formatDate(date);
 
   console.log(
     `Storing search query "${query} at date ${dateStr} in location ${loc}"`
@@ -453,7 +461,7 @@ app.post(
           count: { $sum: "$count" },
         },
       },
-      { $sort: { count: -1 } },
+      { $sort: { "_id.date": 1 } },
       {
         $group: {
           _id: "$_id.query",
@@ -467,12 +475,12 @@ app.post(
         },
       },
       { $sort: { count: -1 } },
-      {
-        $project: {
-          dates: { $slice: ["$dates", 2] },
-          count: 1,
-        },
-      },
+      // {
+      //   $project: {
+      //     dates: { $slice: ["$dates", 2] },
+      //     count: 1,
+      //   },
+      // },
     ]);
     const counts = await result.toArray();
 
