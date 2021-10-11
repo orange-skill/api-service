@@ -206,6 +206,19 @@ app.post("/employee/get", async (req: Request, res: Response) => {
   }
 });
 
+app.get("/employee/getByEmail", async (req: Request, res: Response) => {
+  const empEmail: string = req.query.email as string;
+
+  try {
+    console.log("Looking for employee with email", empEmail);
+    const empId = await findManagerIdFromEmail(empEmail);
+    const doc = await employeeCollection.findOne({ _id: empId });
+    res.send({ msg: "success", data: doc });
+  } catch (err) {
+    res.status(400).send({ msg: "error", error: err, errString: "" + err });
+  }
+});
+
 // ---- employee-skill endpoints -----
 app.post("/employee/skill/meta", async (_: Request, res: Response) => {
   const doc = await skillsCollection.findOne({
@@ -268,7 +281,9 @@ async function addEmployeeSkillBlockchain(empId: number, skill: Skill) {
 }
 
 async function findManagerIdFromEmail(email: string): Promise<number> {
-  const doc = await employeeCollection.findOne({ email: email });
+  const doc = await employeeCollection.findOne({
+    email: { $exists: true, $eq: email },
+  });
   return doc.empId;
 }
 
