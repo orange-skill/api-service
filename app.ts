@@ -409,7 +409,7 @@ app.post("/employee/skills", async (req: Request, res: Response) => {
   res.send({ skills });
 });
 
-async function searchSkill(empId: number, skills: Skill[], rawQuery: string) {
+async function searchSkill(empId: number, skills: Skill[], rawQuery: string, sortByProf: boolean) {
   const query = rawQuery.toLowerCase();
 
   const foundSkills: Skill[] = [];
@@ -426,22 +426,42 @@ async function searchSkill(empId: number, skills: Skill[], rawQuery: string) {
     }
   }
 
+  let maxProficiency = 0;
+  foundSkills.forEach((el) => {
+    if (el.profiency > maxProficiency) {
+      maxProficiency = el.profiency;
+    }
+  });
+
+  if (sortByProf) {
+    foundSkills.sort((first, second) => {
+      if (first.profiency < second.profiency) {
+        return 1;
+      } else if (first.profiency > second.profiency) {
+        return -1;
+      } else {
+        return 0;
+      }
+    });
+  }
+
   if (foundSkills.length == 0) return null;
   else {
-    return { empId, foundSkills };
+    return { empId, foundSkills, maxProficiency };
   }
 }
 
 async function searchSkillCached(
   empId: number,
   skills: Skill[],
-  rawQuery: string
+  rawQuery: string,
+  sortByProf: boolean
 ) {
   console.log("trying cache (for computation)");
   return await cache.wrap(rawQuery + ";-;-;" + empId.toString(), () => {
     console.log("cache miss (for blockchain)");
-    return searchSkill(empId, skills, rawQuery);
-  });
+    return searchSkill(empId, skills, rawQuery, sortByProf);
+  }, {ttl: 0});
 }
 
 function formatDate(date: Date) {
@@ -485,6 +505,10 @@ app.post("/employee/searchSkill", async (req: Request, res: Response) => {
   const query: string = body.query;
   const loc: string = body.loc;
   const givenDate = body.date;
+  let sortByProf = false;
+  if (body.sortByProf) {
+    sortByProf = true;
+  }
 
   const results = await employeeCollection
     .find({})
@@ -498,7 +522,8 @@ app.post("/employee/searchSkill", async (req: Request, res: Response) => {
         return await searchSkillCached(
           result._id,
           await getSkillsFromBlockchainCached(result._id),
-          query
+          query,
+          sortByProf,
         );
       })()
     );
@@ -507,6 +532,18 @@ app.post("/employee/searchSkill", async (req: Request, res: Response) => {
   const empIds = await Promise.all(promises);
   // empIds includes some null values, remove those
   const newEmpIds = empIds.filter((e) => e);
+
+  if (sortByProf) {
+    newEmpIds.sort((first, second) => {
+      if (first.maxProficiency < second.maxProficiency) {
+        return 1;
+      } else if (first.maxProficiency > second.maxProficiency) {
+        return -1;
+      } else {
+        return 0;
+      }
+    });
+  }
 
   console.log(newEmpIds);
 
