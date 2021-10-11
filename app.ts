@@ -409,7 +409,54 @@ app.post("/employee/skills", async (req: Request, res: Response) => {
   res.send({ skills });
 });
 
-async function searchSkill(empId: number, skills: Skill[], rawQuery: string, sortByProf: boolean) {
+app.post("/manager/getPendingSkills", async (req: Request, res: Response) => {
+  const managerId = req.body.managerId;
+  console.log("Getting pending skills for manager", managerId);
+
+  try {
+    const docs = await employeeCollection
+      .find(
+        { skills: { $elemMatch: { managerId: managerId, confirmed: false } } },
+        { projection: { "skills.$": 1, _id: 1, empId: 1 } }
+      )
+      .toArray();
+    // const docs = await employeeCollection
+    //   .aggregate([
+    //     {
+    //       $match: { "skills.managerId": managerId, "skills.confirmed": false },
+    //     },
+    //     { $unwind: "$skills" },
+    //     {
+    //       $match: { "skills.managerId": managerId, "skills.confirmed": false },
+    //     },
+    //     { $project: { skills: 1 } },
+    //     {
+    //       $group: {
+    //         // group all documents
+    //         _id: null, // into the same bucket
+    //         skills: { $push: "$skills" }, // and push every image entry into an array called "images"
+    //       },
+    //     },
+    //     {
+    //       $project: {
+    //         _id: 0, // to get rid of the "_id" field if needed
+    //       },
+    //     },
+    //   ])
+    //   .toArray();
+    employeeCollection.aggregate();
+    res.send({ msg: "success", data: docs });
+  } catch (err) {
+    res.status(400).send({ msg: "error", error: err, errString: "" + err });
+  }
+});
+
+async function searchSkill(
+  empId: number,
+  skills: Skill[],
+  rawQuery: string,
+  sortByProf: boolean
+) {
   const query = rawQuery.toLowerCase();
 
   const foundSkills: Skill[] = [];
@@ -458,10 +505,14 @@ async function searchSkillCached(
   sortByProf: boolean
 ) {
   console.log("trying cache (for computation)");
-  return await cache.wrap(rawQuery + ";-;-;" + empId.toString(), () => {
-    console.log("cache miss (for blockchain)");
-    return searchSkill(empId, skills, rawQuery, sortByProf);
-  }, {ttl: 0});
+  return await cache.wrap(
+    rawQuery + ";-;-;" + empId.toString(),
+    () => {
+      console.log("cache miss (for blockchain)");
+      return searchSkill(empId, skills, rawQuery, sortByProf);
+    },
+    { ttl: 0 }
+  );
 }
 
 function formatDate(date: Date) {
@@ -523,7 +574,7 @@ app.post("/employee/searchSkill", async (req: Request, res: Response) => {
           result._id,
           await getSkillsFromBlockchainCached(result._id),
           query,
-          sortByProf,
+          sortByProf
         );
       })()
     );
