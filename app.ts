@@ -166,6 +166,15 @@ app.post("/admin/user/reject", async (req: Request, res: Response) => {
   }
 });
 
+app.get("/admin/user/all", async (_: Request, res: Response) => {
+  try {
+    const doc = await employeeCollection.find().toArray();
+    res.send({ msg: "success", data: doc });
+  } catch (err) {
+    res.status(400).send({ msg: "error", error: err, errString: "" + err });
+  }
+});
+
 // ---- employee endpoint        -----
 app.post("/employee/add", async (req: Request, res: Response) => {
   const body = req.body;
