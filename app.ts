@@ -415,11 +415,18 @@ app.post("/manager/getPendingSkills", async (req: Request, res: Response) => {
 
   try {
     const docs = await employeeCollection
-      .find(
-        { skills: { $elemMatch: { managerId: managerId, confirmed: false } } },
-        { projection: { "skills.$": 1, _id: 1, empId: 1 } }
-      )
+      .find({
+        skills: { $elemMatch: { managerId: managerId, confirmed: false } },
+      })
       .toArray();
+    docs.forEach((doc) => {
+      doc.skills = (doc.skills as SkillDb[]).filter((skill) => {
+        if (skill.managerId === managerId && skill.confirmed === false)
+          return true;
+        return false;
+      });
+    });
+
     // const docs = await employeeCollection
     //   .aggregate([
     //     {
