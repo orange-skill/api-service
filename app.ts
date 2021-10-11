@@ -93,7 +93,9 @@ class SkillDb extends Skill {
     public levelOthers: string,
     public confirmed: boolean,
     public public_: boolean,
-    public comments: IComment[]
+    public comments: IComment[],
+    public createdAt: Date,
+    public confirmedAt: Date
   ) {
     super(
       skillId,
@@ -117,7 +119,8 @@ class Comment {
     public message: string,
     public sender: string,
     public senderId: number,
-    public newProficiency: number
+    public newProficiency: number,
+    public createdAt: Date
   ) {}
 }
 
@@ -240,6 +243,8 @@ app.post("/employee/skill/add", async (req: Request, res: Response) => {
   delete rawSkill.managerEmail;
 
   const skill: ISkillDb = rawSkill;
+  skill.createdAt = new Date();
+  skill.confirmedAt = new Date(0);
 
   const updateRes = await employeeCollection.updateOne(
     { _id: empId },
@@ -258,6 +263,7 @@ app.post("/employee/skill/comment", async (req: Request, res: Response) => {
   const skillIdx: number = body.skillIdx;
   const empId: number = body.empId;
   const comment: IComment = body.comment;
+  comment.createdAt = new Date();
 
   const updateRes = await employeeCollection.updateOne(
     {
@@ -286,7 +292,12 @@ app.post("/employee/skill/confirm", async (req: Request, res: Response) => {
 
   const updateRes = await employeeCollection.updateOne(
     { _id: empId },
-    { $set: { [`skills.${skillIdx}.confirmed`]: true } }
+    {
+      $set: {
+        [`skills.${skillIdx}.confirmed`]: true,
+        [`skills.${skillIdx}.confirmedAt`]: new Date(),
+      },
+    }
   );
 
   const emp = await employeeCollection.findOne(
