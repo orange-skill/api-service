@@ -136,12 +136,46 @@ type _TupleOf<T, N extends number, R extends unknown[]> = R["length"] extends N
   ? R
   : _TupleOf<T, N, [T, ...R]>;
 
+// ---- admin endpoints ----
+
+app.post("/admin/user/approve", async (req: Request, res: Response) => {
+  const empId: number = req.body.empId;
+
+  try {
+    const doc = await employeeCollection.updateOne(
+      { _id: empId },
+      { $set: { verified: 1 } }
+    );
+    res.send({ msg: "success", data: doc });
+  } catch (err) {
+    res.status(400).send({ msg: "error", error: err, errString: "" + err });
+  }
+});
+
+app.post("/admin/user/reject", async (req: Request, res: Response) => {
+  const empId: number = req.body.empId;
+
+  try {
+    const doc = await employeeCollection.updateOne(
+      { _id: empId },
+      { $set: { verified: -1 } }
+    );
+    res.send({ msg: "success", data: doc });
+  } catch (err) {
+    res.status(400).send({ msg: "error", error: err, errString: "" + err });
+  }
+});
+
 // ---- employee endpoint        -----
 app.post("/employee/add", async (req: Request, res: Response) => {
   const body = req.body;
   const empId: number = body.empId;
   const newDoc = body;
   newDoc._id = empId;
+
+  if (newDoc.verified === undefined || newDoc.verified === null) {
+    newDoc.verified = 0;
+  }
 
   try {
     const doc = await employeeCollection.insertOne(newDoc);
