@@ -4,16 +4,38 @@ import cacheManager from "cache-manager";
 import cors from "cors";
 import Web3 from "web3";
 import dotenv from "dotenv";
+import fs from "fs";
+import https from "https";
+import { Server } from "net";
+
+// https setup
+dotenv.config();
+const useHttps = process.env.HTTPS && process.env.HTTPS === "1";
+let options;
+if (useHttps) {
+  const key = fs.readFileSync(`${process.env.HTTPS_KEYROOT}/privkey.pem`);
+  const cert = fs.readFileSync(`${process.env.HTTPS_KEYROOT}/cert.pem`);
+  const ca = fs.readFileSync(`${process.env.HTTPS_KEYROOT}/chain.pem`);
+  options = {
+    key: key,
+    cert: cert,
+    ca: ca
+  };
+}
+
 
 // express init
 const app = express();
+let server: any = app;
+if (useHttps) {
+  server = https.createServer(options, app);
+}
 const port = 3001;
 // middle wares
 app.use(express.json());
 app.use(cors());
 
 // web3 init
-dotenv.config();
 const web3 = new Web3("http://localhost:8545");
 const privateKey = process.env.PRIVATE_KEY;
 const jsonInterface = JSON.parse(
@@ -782,6 +804,6 @@ app.get("/employee/analytics/percent", async (req: Request, res: Response) => {
 });
 
 // listen
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Orange Identity API is running on port ${port}.`);
 });
