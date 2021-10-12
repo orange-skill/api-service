@@ -460,6 +460,61 @@ app.post("/manager/getPendingSkills", async (req: Request, res: Response) => {
   }
 });
 
+// scoring algorithm
+function scoreSkills(
+  skills: Skill[],
+  args = {
+    weightExp: 5,
+    weightLearn: 3,
+    ranks: [10, 5, 2, 1],
+    rankThresholds: [10, 20, 50, 100],
+    debug: true,
+  }
+) {
+  skills = skills.sort(proficiencySortFn);
+
+  let score = 0;
+  let rankIdx = 0;
+  let idx = 0;
+
+  skills.forEach((skill) => {
+    let weight = args.weightLearn;
+    if (skill.track === "experience") {
+      weight = args.weightExp;
+    }
+    if (args.debug) {
+      console.log(
+        "Adding skill to score:",
+        skill.profiency,
+        weight,
+        args.ranks[rankIdx],
+        idx,
+        rankIdx,
+        score
+      );
+    }
+    score += skill.profiency * weight * args.ranks[rankIdx];
+
+    idx++;
+    if (idx > args.rankThresholds[rankIdx]) {
+      rankIdx++;
+      console.log("Increased rank index", idx, rankIdx);
+    }
+  });
+
+  return score;
+}
+
+function proficiencySortFn(first: Skill, second: Skill) {
+  if (first.profiency < second.profiency) {
+    return 1;
+  } else if (first.profiency > second.profiency) {
+    return -1;
+  } else {
+    return 0;
+  }
+}
+
 async function searchSkill(
   empId: number,
   skills: Skill[],
@@ -489,21 +544,15 @@ async function searchSkill(
     }
   });
 
+  const score = scoreSkills(JSON.parse(JSON.stringify(foundSkills)));
+
   if (sortByProf) {
-    foundSkills.sort((first, second) => {
-      if (first.profiency < second.profiency) {
-        return 1;
-      } else if (first.profiency > second.profiency) {
-        return -1;
-      } else {
-        return 0;
-      }
-    });
+    foundSkills.sort(proficiencySortFn);
   }
 
   if (foundSkills.length == 0) return null;
   else {
-    return { empId, foundSkills, maxProficiency };
+    return { empId, foundSkills, maxProficiency, score };
   }
 }
 
@@ -520,7 +569,7 @@ async function searchSkillCached(
       console.log("cache miss (for blockchain)");
       return searchSkill(empId, skills, rawQuery, sortByProf);
     },
-    { ttl: 0 }
+    { ttl: 1 }
   );
 }
 
