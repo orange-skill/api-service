@@ -420,7 +420,9 @@ app.post("/manager/getPendingSkills", async (req: Request, res: Response) => {
       })
       .toArray();
     docs.forEach((doc) => {
-      doc.skills = (doc.skills as SkillDb[]).filter((skill) => {
+      let skillIdx = 0;
+      doc.skills = (doc.skills as any[]).filter((skill) => {
+        skill.skillIdx = skillIdx++;
         if (skill.managerId === managerId && skill.confirmed === false)
           return true;
         return false;
