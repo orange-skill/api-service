@@ -744,6 +744,43 @@ app.post(
   }
 );
 
+app.get("/employee/analytics/percent", async (req: Request, res: Response) => {
+  const results = await employeeCollection
+    .find({}, { projection: { skills: 1 } })
+    .toArray();
+
+  const data = {};
+  let total = 0;
+
+  function addIfNotExistsNotEmpty(field: string) {
+    if (field) {
+      if (!data[field]) {
+        data[field] = 0;
+      }
+      data[field]++;
+    }
+  }
+
+  results.forEach((user) => {
+    user.skills?.forEach((skill: ISkillDb) => {
+      addIfNotExistsNotEmpty(skill.levelOne);
+      addIfNotExistsNotEmpty(skill.levelTwo);
+      addIfNotExistsNotEmpty(skill.levelThree);
+      addIfNotExistsNotEmpty(skill.levelFour);
+      addIfNotExistsNotEmpty(skill.levelOthers);
+
+      total++;
+    });
+  });
+
+  const percents = {};
+  for (let key in data) {
+    percents[key] = (data[key] * 100) / total;
+  }
+
+  res.send({ percents: percents });
+});
+
 // listen
 app.listen(port, () => {
   console.log(`Orange Identity API is running on port ${port}.`);
